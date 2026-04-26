@@ -1,0 +1,8 @@
+<div class="card">
+    <h2 style="text-align:center;">📋 歡迎，{{ user_name }}</h2>
+    <form action="/submit" method="POST">
+        <input type="hidden" name="gps" id="gps">
+        <button type="submit" id="btn" disabled>偵測定位中...</button>
+    </form>
+    <a href="/logout" style="display:block; text-align:center; margin-top:10px; color:#e74c3c; font-size:0.8em;">登出系統</a>
+</div>

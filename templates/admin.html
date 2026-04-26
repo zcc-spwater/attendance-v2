@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>詳細查詢 | SmartCheck</title>
+    <style>
+        body { background: #050505; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+        .card { background: #111; border: 1px solid #3498db; border-radius: 20px; padding: 30px; width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 15px; background: #1a1a1a; border: 1px solid #333; color: white; border-radius: 12px; margin-bottom: 20px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; border-bottom: 1px solid #222; text-align: center; }
+        .status-出席 { color: #2ecc71; } .status-遲到 { color: #f1c40f; } .status-缺席 { color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <a href="/" style="color:#888; text-decoration:none; margin-bottom:20px;">← 返回首頁</a>
+    <div class="card">
+        <h3 style="text-align:center; color:#3498db;">🔍 今日缺曠紀錄 ({{ today }})</h3>
+        <input type="text" id="search" placeholder="輸入姓名並按 Enter..." onkeypress="if(event.key==='Enter') show()">
+        <div id="raw-data" style="display:none;">{{ all_records | tojson | safe }}</div>
+        <div id="res" style="display:none;">
+            <table><thead><tr><th>節次</th><th>狀態</th><th>分數</th></tr></thead><tbody id="body"></tbody></table>
+        </div>
+    </div>
+    <script>
+        function show() {
+            const records = JSON.parse(document.getElementById("raw-data").innerText);
+            const name = document.getElementById("search").value.trim();
+            if(!name) return;
+            const data = records.filter(r => r[1] === name && r[2] === "{{ today }}");
+            const b = document.getElementById("body"); b.innerHTML = "";
+            ["第1節","第2節","第3節","第4節","第5節","第6節","第7節","第8節"].forEach(p => {
+                const r = data.find(x => x[3] === p);
+                const s = r ? r[4] : "缺席";
+                b.innerHTML += `<tr><td>${p}</td><td class="status-${s}">${s}</td><td>${r ? r[5] : 0} pts</td></tr>`;
+            });
+            document.getElementById("res").style.display = "block";
+        }
+    </script>
+</body>
+</html>
