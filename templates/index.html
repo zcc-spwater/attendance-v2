@@ -1,8 +1,74 @@
-<div class="card">
-    <h2 style="text-align:center;">📋 歡迎，{{ user_name }}</h2>
-    <form action="/submit" method="POST">
-        <input type="hidden" name="gps" id="gps">
-        <button type="submit" id="btn" disabled>偵測定位中...</button>
-    </form>
-    <a href="/logout" style="display:block; text-align:center; margin-top:10px; color:#e74c3c; font-size:0.8em;">登出系統</a>
-</div>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    </head>
+<body>
+    <div class="container">
+        <h2>資二甲 簽到系統</h2>
+        <p id="status" style="font-size: 14px; color: #81d4fa;">點擊下方按鈕進行簽到</p>
+        
+        <button id="checkinBtn" onclick="getLocation()">
+            <span id="btnText">開始定位簽到</span>
+        </button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function getLocation() {
+            const btn = document.getElementById('checkinBtn');
+            const status = document.getElementById('status');
+            const btnText = document.getElementById('btnText');
+
+            // 1. 立即視覺反饋
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btnText.innerText = "連線衛星中...";
+            status.innerText = "正在精準定位，請稍後...";
+
+            // 2. 優化後的定位設定
+            const options = {
+                enableHighAccuracy: true, // 雖然跑比較久，但簽到需要精準
+                timeout: 8000,           // 最多等 8 秒，沒抓到就跳錯誤，不讓使用者乾等
+                maximumAge: 30000        // 30 秒內如果有抓過定位，就直接拿來用 (秒開關鍵)
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        status.innerText = "定位成功！正在傳送資料...";
+                        
+                        // 這裡接你原本的 fetch 送到後端的代碼
+                        sendDataToBackend(lat, lng);
+                    },
+                    (error) => {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btnText.innerText = "重試定位";
+                        status.innerText = "定位失敗：" + error.message;
+                    },
+                    options
+                );
+            } else {
+                status.innerText = "您的瀏覽器不支援定位。";
+            }
+        }
+
+        function sendDataToBackend(lat, lng) {
+            // 你原本傳送到 Flask 的 API 路徑
+            fetch('/checkin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude: lat, longitude: lng })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                location.reload(); // 簽到完重新整理看結果
+            });
+        }
+    </script>
+</body>
+</html>
