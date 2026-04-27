@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: rgba(255, 255, 255, 0.06);
+            --primary: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+            --text: #f1f5f9;
+        }
+        body {
+            margin: 0; font-family: 'PingFang TC', sans-serif;
+            background: var(--bg); color: var(--text);
+            height: 100vh; display: flex; justify-content: center; align-items: center;
+            background-image: radial-gradient(at 0% 0%, rgba(56,189,248,0.15) 0px, transparent 50%);
+        }
+        .glass-card {
+            background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 28px;
+            padding: 30px; width: 90%; max-width: 360px;
+            border: 1px solid rgba(255,255,255,0.1); text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        input {
+            width: 100%; padding: 14px; margin: 10px 0; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+            color: white; box-sizing: border-box;
+        }
+        .btn {
+            width: 100%; padding: 14px; border: none; border-radius: 12px;
+            background: var(--primary); color: white; font-weight: bold; cursor: pointer; margin-top: 15px;
+        }
+        .btn:disabled { opacity: 0.5; }
+        a { color: #38bdf8; text-decoration: none; font-size: 14px; }
+        .leaderboard { text-align: left; margin-top: 20px; font-size: 14px; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px;}
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>

@@ -1,74 +1,60 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    </head>
-<body>
-    <div class="container">
-        <h2>資二甲 簽到系統</h2>
-        <p id="status" style="font-size: 14px; color: #81d4fa;">點擊下方按鈕進行簽到</p>
-        
-        <button id="checkinBtn" onclick="getLocation()">
-            <span id="btnText">開始定位簽到</span>
-        </button>
-        
-        <div id="result"></div>
+{% extends "layout.html" %}
+{% block content %}
+<div class="glass-card">
+    <span style="font-size: 40px;">📍</span>
+    <h2>{{ user_name }}，你好</h2>
+    <p id="stText" style="color:#94a3b8">請點擊下方按鈕進行簽到</p>
+    
+    <button class="btn" id="locBtn" onclick="startCheckin()">開始定位簽到</button>
+
+    <div class="leaderboard">
+        <p style="margin-top:0; color:#38bdf8; font-weight:bold;">🏆 積分排行榜</p>
+        {% for item in leaderboard %}
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span>{{ loop.index }}. {{ item.name }}</span>
+                <span>{{ item.score }} pts</span>
+            </div>
+        {% endfor %}
     </div>
+    
+    <a href="/logout" style="display:block; margin-top:20px; color:#ef4444;">登出</a>
+</div>
 
-    <script>
-        function getLocation() {
-            const btn = document.getElementById('checkinBtn');
-            const status = document.getElementById('status');
-            const btnText = document.getElementById('btnText');
+<script>
+async function startCheckin() {
+    const btn = document.getElementById('locBtn');
+    const txt = document.getElementById('stText');
+    btn.disabled = true; btn.innerText = "正在定位...";
+    
+    // 秒開優化參數
+    const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 };
 
-            // 1. 立即視覺反饋
-            btn.disabled = true;
-            btn.style.opacity = '0.6';
-            btnText.innerText = "連線衛星中...";
-            status.innerText = "正在精準定位，請稍後...";
-
-            // 2. 優化後的定位設定
-            const options = {
-                enableHighAccuracy: true, // 雖然跑比較久，但簽到需要精準
-                timeout: 8000,           // 最多等 8 秒，沒抓到就跳錯誤，不讓使用者乾等
-                maximumAge: 30000        // 30 秒內如果有抓過定位，就直接拿來用 (秒開關鍵)
-            };
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        status.innerText = "定位成功！正在傳送資料...";
-                        
-                        // 這裡接你原本的 fetch 送到後端的代碼
-                        sendDataToBackend(lat, lng);
-                    },
-                    (error) => {
-                        btn.disabled = false;
-                        btn.style.opacity = '1';
-                        btnText.innerText = "重試定位";
-                        status.innerText = "定位失敗：" + error.message;
-                    },
-                    options
-                );
-            } else {
-                status.innerText = "您的瀏覽器不支援定位。";
-            }
-        }
-
-        function sendDataToBackend(lat, lng) {
-            // 你原本傳送到 Flask 的 API 路徑
-            fetch('/checkin', {
+    navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+            const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
+            txt.innerText = "定位成功，回傳資料中...";
+            
+            const res = await fetch('/submit', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ latitude: lat, longitude: lng })
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert(data.message);
-                location.reload(); // 簽到完重新整理看結果
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ gps: gps })
             });
-        }
-    </script>
-</body>
-</html>
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                Swal.fire({ icon: 'success', title: '成功', text: data.message, background: '#1e293b', color: '#fff' })
+                .then(() => location.reload());
+            } else {
+                Swal.fire({ icon: 'error', title: '失敗', text: data.message, background: '#1e293b', color: '#fff' });
+                btn.disabled = false; btn.innerText = "重試簽到";
+            }
+        },
+        (err) => {
+            Swal.fire('定位失敗', '請開啟 GPS 並允許瀏覽器存取權限', 'error');
+            btn.disabled = false; btn.innerText = "重新定位";
+        },
+        options
+    );
+}
+</script>
+{% endblock %}

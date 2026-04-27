@@ -1,9 +1,29 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head><meta charset="UTF-8"><title>簽到成功</title></head>
-<body style="background:#000; color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif;">
-    <h1 style="font-size:3em; color:#2ecc71; margin-bottom:10px;">🎉 {{ name }} 簽到成功</h1>
-    <p style="color:#888; margin-bottom:30px;">紀錄已同步至 Google Sheets</p>
-    <a href="/" style="padding:12px 40px; border:1px solid #2ecc71; color:#2ecc71; text-decoration:none; border-radius:50px; font-weight:bold;">返回首頁</a>
-</body>
-</html>
+{% extends "layout.html" %}
+{% block content %}
+<div class="glass-card">
+    <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
+    <h2 style="background: linear-gradient(to right, #10b981, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        簽到成功！
+    </h2>
+    <p style="color: #94a3b8; line-height: 1.6;">
+        嘿，<span style="color: #f1f5f9; font-weight: bold;">{{ name }}</span>！<br>
+        你的出席紀錄已經成功寫入試算表。<br>
+        記得明天也要準時簽到喔！
+    </p>
+    
+    <button class="btn" onclick="location.href='/'" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+        返回首頁
+    </button>
+
+    <div style="margin-top: 25px; font-size: 12px; color: #64748b;">
+        資二甲出缺席管理系統 V2.0
+    </div>
+</div>
+
+<script>
+    // 進入頁面時自動噴灑一點慶祝小驚喜 (選配)
+    window.onload = () => {
+        console.log("簽到大成功！");
+    };
+</script>
+{% endblock %}
