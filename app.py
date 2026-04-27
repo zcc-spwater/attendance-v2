@@ -33,104 +33,89 @@ def get_sheets_service():
         with open('my_key.txt', 'r', encoding='utf-8') as f:
             content = f.read()
             json_info = content[content.find('{'):]
-    
     info = json.loads(json_info)
     creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     return build('sheets', 'v4', credentials=creds)
 
-# --- 路由邏輯 ---
-
 @app.route('/')
 def index():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
+    if 'user_id' not in session: return redirect(url_for('login'))
     try:
         service = get_sheets_service()
         result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
         values = result.get('values', [])[1:]
     except: values = []
-    
     summary = {}
     for r in values:
-        if len(r) >= 6:
-            summary[r[1]] = summary.get(r[1], 0) + int(r[5])
+        if len(r) >= 6: summary[r[1]] = summary.get(r[1], 0) + int(r[5])
     leaderboard = sorted([{'name': k, 'score': v} for k, v in summary.items()], key=lambda x: x['score'], reverse=True)
     return render_template('index.html', user_name=session['user_name'], leaderboard=leaderboard)
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        try:
-            username = request.form.get('username')
-            password = request.form.get('password')
-            name = request.form.get('name')
-            
-            service = get_sheets_service()
-            service.spreadsheets().values().append(
-                spreadsheetId=SPREADSHEET_ID, 
-                range='users!A:C',
-                valueInputOption='USER_ENTERED', 
-                body={'values': [[username, password, name]]}
-            ).execute()
-            return jsonify({'status': 'success', 'message': '🎉 註冊成功！'})
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)})
-    return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        uid, pwd = request.form.get('username'), request.form.get('password')
         service = get_sheets_service()
-        result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range='users!A:C').execute()
-        users = result.get('values', [])
-        for user in users[1:]:
-            if user[0] == username and user[1] == password:
-                session['user_id'] = user[0]
-                session['user_name'] = user[2]
-                return jsonify({'status': 'success', 'message': f'歡迎回來，{user[2]}'})
+        users = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range='users!A:C').execute().get('values', [])
+        for u in users[1:]:
+            if u[0] == uid and u[1] == pwd:
+                session['user_id'], session['user_name'] = u[0], u[2]
+                return jsonify({'status': 'success'})
         return jsonify({'status': 'error', 'message': '帳號或密碼錯誤'})
     return render_template('login.html')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        uid, pwd, name = request.form.get('username'), request.form.get('password'), request.form.get('name')
+        try:
+            service = get_sheets_service()
+            service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range='users!A:C', 
+                valueInputOption='USER_ENTERED', body={'values': [[uid, pwd, name]]}).execute()
+            return jsonify({'status': 'success', 'message': '註冊成功！'})
+        except Exception as e: return jsonify({'status': 'error', 'message': str(e)})
+    return render_template('register.html')
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        uid, name, new_pwd = request.form.get('username'), request.form.get('name'), request.form.get('new_password')
+        service = get_sheets_service()
+        users = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range='users!A:C').execute().get('values', [])
+        for i, u in enumerate(users):
+            if i > 0 and u[0] == uid and u[2] == name:
+                service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID, range=f'users!B{i+1}', 
+                    valueInputOption='USER_ENTERED', body={'values': [[new_pwd]]}).execute()
+                return jsonify({'status': 'success'})
+        return jsonify({'status': 'error', 'message': '驗證資訊不正確'})
+    return render_template('forgot_password.html')
+
 @app.route('/submit', methods=['POST'])
 def submit():
-    if 'user_id' not in session: return jsonify({'status': 'error', 'message': '請先登入'})
-    
+    if 'user_id' not in session: return jsonify({'status': 'error'})
     now = datetime.now()
-    if now.hour >= 17:
-        return jsonify({'status': 'error', 'message': '今日簽到已截止 (17:00)'})
-
+    if now.hour >= 17: return jsonify({'status': 'error', 'message': '已過簽到時間'})
+    
     data = request.get_json()
-    gps_data = data.get('gps') # 前端傳來的 "lat,lng"
-    
-    sid = session['user_id']
-    name = session['user_name']
+    gps = data.get('gps')
+    if gps:
+        user_loc = tuple(map(float, gps.split(',')))
+        if geodesic(user_loc, SCHOOL_LOCATION).km > ALLOWED_DISTANCE_KM:
+            return jsonify({'status': 'error', 'message': '距離學校太遠囉！'})
+
     curr_t, curr_d = now.time(), now.strftime("%Y-%m-%d")
-    
-    this_p, status, score = "非課堂時間", "缺席", 0
+    this_p, status, score = "非課堂", "缺席", 0
     for p in PERIODS:
         if p["start"] <= curr_t <= p["end"]:
             this_p = p["name"]
-            diff = (now.hour - p["start"].hour) * 60 + (now.minute - p["start"].minute)
+            diff = (now.hour - p["start"].hour)*60 + (now.minute - p["start"].minute)
             status, score = ("出席", 10) if diff <= 5 else ("遲到", 5)
             break
 
-    if gps_data:
-        try:
-            user_loc = tuple(map(float, gps_data.split(',')))
-            if geodesic(user_loc, SCHOOL_LOCATION).km > ALLOWED_DISTANCE_KM:
-                return jsonify({'status': 'error', 'message': '❌ 距離學校過遠，簽到失敗！'})
-        except:
-            return jsonify({'status': 'error', 'message': 'GPS 格式錯誤'})
-
     service = get_sheets_service()
-    service.spreadsheets().values().append(
-        spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
-        valueInputOption='USER_ENTERED', body={'values': [[sid, name, curr_d, this_p, status, score]]}
-    ).execute()
-    return jsonify({'status': 'success', 'message': f'✅ {name} 簽到成功 ({status})'})
+    service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
+        valueInputOption='USER_ENTERED', body={'values': [[session['user_id'], session['user_name'], curr_d, this_p, status, score]]}).execute()
+    return jsonify({'status': 'success', 'message': f'簽到成功！({status})'})
 
 @app.route('/logout')
 def logout():

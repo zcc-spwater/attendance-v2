@@ -1,60 +1,30 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="glass-card">
-    <span style="font-size: 40px;">📍</span>
-    <h2>{{ user_name }}，你好</h2>
-    <p id="stText" style="color:#94a3b8">請點擊下方按鈕進行簽到</p>
-    
-    <button class="btn" id="locBtn" onclick="startCheckin()">開始定位簽到</button>
-
-    <div class="leaderboard">
-        <p style="margin-top:0; color:#38bdf8; font-weight:bold;">🏆 積分排行榜</p>
-        {% for item in leaderboard %}
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span>{{ loop.index }}. {{ item.name }}</span>
-                <span>{{ item.score }} pts</span>
-            </div>
+    <div style="font-size: 40px;">📍</div>
+    <h2>{{ user_name }}</h2>
+    <p id="st">點擊按鈕完成簽到</p>
+    <button class="btn" id="lBtn" onclick="doSign()">立即簽到</button>
+    <div style="text-align:left; margin-top:20px; background:rgba(0,0,0,0.2); padding:10px; border-radius:10px;">
+        <p style="color:#38bdf8; font-weight:bold; margin:0 0 10px 0;">🏆 積分榜</p>
+        {% for i in leaderboard[:5] %}
+        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+            <span>{{ loop.index }}. {{ i.name }}</span><span>{{ i.score }} pts</span>
+        </div>
         {% endfor %}
     </div>
-    
-    <a href="/logout" style="display:block; margin-top:20px; color:#ef4444;">登出</a>
+    <a href="/logout" style="display:block; margin-top:20px; color:#ef4444;">登出系統</a>
 </div>
-
 <script>
-async function startCheckin() {
-    const btn = document.getElementById('locBtn');
-    const txt = document.getElementById('stText');
-    btn.disabled = true; btn.innerText = "正在定位...";
-    
-    // 秒開優化參數
-    const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 };
-
-    navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-            const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-            txt.innerText = "定位成功，回傳資料中...";
-            
-            const res = await fetch('/submit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ gps: gps })
-            });
-            const data = await res.json();
-            
-            if(data.status === 'success') {
-                Swal.fire({ icon: 'success', title: '成功', text: data.message, background: '#1e293b', color: '#fff' })
-                .then(() => location.reload());
-            } else {
-                Swal.fire({ icon: 'error', title: '失敗', text: data.message, background: '#1e293b', color: '#fff' });
-                btn.disabled = false; btn.innerText = "重試簽到";
-            }
-        },
-        (err) => {
-            Swal.fire('定位失敗', '請開啟 GPS 並允許瀏覽器存取權限', 'error');
-            btn.disabled = false; btn.innerText = "重新定位";
-        },
-        options
-    );
+async function doSign() {
+    const btn = document.getElementById('lBtn');
+    btn.disabled = true; btn.innerText = "定位中...";
+    navigator.geolocation.getCurrentPosition(async (p) => {
+        const res = await fetch('/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gps: `${p.coords.latitude},${p.coords.longitude}`}) });
+        const data = await res.json();
+        if(data.status==='success') Swal.fire('成功', data.message, 'success').then(()=>location.reload());
+        else { Swal.fire('失敗', data.message, 'error'); btn.disabled = false; btn.innerText = "重試簽到"; }
+    }, () => { Swal.fire('錯誤', '請開啟定位權限', 'error'); btn.disabled = false; }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
 }
 </script>
 {% endblock %}

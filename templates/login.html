@@ -1,121 +1,23 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出缺席管理系統 - 登入</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
-
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            padding: 40px;
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            width: 100%;
-            max-width: 380px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        h2 {
-            margin-bottom: 30px;
-            font-size: 28px;
-            font-weight: 500;
-            letter-spacing: 3px;
-            background: linear-gradient(to right, #fff, #81d4fa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-
-        input {
-            width: 100%;
-            padding: 14px;
-            margin-top: 5px;
-            border: none;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            font-size: 16px;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
-        }
-
-        input::placeholder { color: rgba(255,255,255,0.5); }
-
-        input:focus {
-            background: rgba(255, 255, 255, 0.25);
-            outline: none;
-            box-shadow: 0 0 15px rgba(129, 212, 250, 0.3);
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(45deg, #00c6ff, #0072ff);
-            color: white;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.4s;
-            margin-top: 20px;
-            box-shadow: 0 4px 15px rgba(0, 114, 255, 0.3);
-        }
-
-        button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 114, 255, 0.5);
-            filter: brightness(1.1);
-        }
-
-        .link {
-            margin-top: 25px;
-            font-size: 14px;
-            color: rgba(255,255,255,0.7);
-        }
-
-        .link a {
-            color: #81d4fa;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .link a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>使用者登入</h2>
-        <form action="/login" method="POST">
-            <div class="input-group">
-                <input type="text" name="username" placeholder="請輸入帳號" required>
-            </div>
-            <div class="input-group">
-                <input type="password" name="password" placeholder="請輸入密碼" required>
-            </div>
-            <button type="submit">立即進入系統</button>
-        </form>
-        <div class="link">
-            還沒有帳號？ <a href="/register">註冊一個</a>
-        </div>
+{% extends "layout.html" %}
+{% block content %}
+<div class="glass-card">
+    <h2>Login</h2>
+    <form id="lF">
+        <input type="text" name="username" placeholder="學號" required>
+        <input type="password" name="password" placeholder="密碼" required>
+        <button type="submit" class="btn" id="b">登入簽到</button>
+    </form>
+    <div style="margin-top:20px; display:flex; justify-content:space-between;">
+        <a href="/register">註冊</a><a href="/forgot_password" style="color:#94a3b8">忘記密碼</a>
     </div>
-</body>
-</html>
+</div>
+<script>
+document.getElementById('lF').onsubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch('/login', { method: 'POST', body: new FormData(e.target) });
+    const data = await res.json();
+    if(data.status==='success') location.href='/';
+    else Swal.fire('錯誤', data.message, 'error');
+};
+</script>
+{% endblock %}

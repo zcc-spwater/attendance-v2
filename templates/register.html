@@ -1,23 +1,22 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="glass-card">
-    <h2>Login</h2>
-    <form id="loginForm">
+    <h2>Register</h2>
+    <form id="rF">
         <input type="text" name="username" placeholder="學號" required>
-        <input type="password" name="password" placeholder="密碼" required>
-        <button type="submit" class="btn" id="sBtn">登入系統</button>
+        <input type="text" name="name" placeholder="真實姓名" required>
+        <input type="password" name="password" placeholder="設定密碼" required>
+        <button type="submit" class="btn">完成註冊</button>
     </form>
-    <p style="margin-top:20px;"><a href="/register">還沒有帳號？點此註冊</a></p>
+    <a href="/login" style="display:block; margin-top:20px;">返回登入</a>
 </div>
 <script>
-document.getElementById('loginForm').onsubmit = async (e) => {
+document.getElementById('rF').onsubmit = async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('sBtn');
-    btn.disabled = true;
-    const res = await fetch('/login', { method: 'POST', body: new FormData(e.target) });
+    const res = await fetch('/register', { method: 'POST', body: new FormData(e.target) });
     const data = await res.json();
-    if(data.status === 'success') location.href = '/';
-    else { Swal.fire('錯誤', data.message, 'error'); btn.disabled = false; }
+    if(data.status==='success') Swal.fire('成功', '註冊成功', 'success').then(()=>location.href='/login');
+    else Swal.fire('失敗', data.message, 'error');
 };
 </script>
 {% endblock %}
