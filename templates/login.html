@@ -1,13 +1,13 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="glass-card">
-    <h2>Login</h2>
+    <h2 style="margin-bottom: 30px;">Login</h2>
     <form id="lF">
         <input type="text" name="username" placeholder="學號" required>
         <input type="password" name="password" placeholder="密碼" required>
-        <button type="submit" class="btn" id="b">登入簽到</button>
+        <button type="submit" class="btn">登入簽到</button>
     </form>
-    <div style="margin-top:20px; display:flex; justify-content:space-between;">
+    <div style="margin-top:25px; display:flex; justify-content:space-between;">
         <a href="/register">註冊</a><a href="/forgot_password" style="color:#94a3b8">忘記密碼</a>
     </div>
 </div>

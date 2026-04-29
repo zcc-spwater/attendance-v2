@@ -24,7 +24,7 @@ PERIODS = [
     {"name": "第5節", "start": time(13, 15), "end": time(14, 5)},
     {"name": "第6節", "start": time(14, 10), "end": time(15, 0)},
     {"name": "第7節", "start": time(15, 10), "end": time(16, 0)},
-    {"name": "第8節", "start": time(16, 5), "end": time(16, 55)},
+    {"name": "第8節", "start": time(16, 5), "end": time(20, 55)},
 ]
 
 def get_sheets_service():
@@ -37,6 +37,8 @@ def get_sheets_service():
     creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     return build('sheets', 'v4', credentials=creds)
 
+# --- 路由 ---
+
 @app.route('/')
 def index():
     if 'user_id' not in session: return redirect(url_for('login'))
@@ -45,6 +47,7 @@ def index():
         result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
         values = result.get('values', [])[1:]
     except: values = []
+    
     summary = {}
     for r in values:
         if len(r) >= 6: summary[r[1]] = summary.get(r[1], 0) + int(r[5])
@@ -90,11 +93,22 @@ def forgot_password():
         return jsonify({'status': 'error', 'message': '驗證資訊不正確'})
     return render_template('forgot_password.html')
 
+@app.route('/my_records')
+def my_records():
+    if 'user_id' not in session: return jsonify([])
+    try:
+        service = get_sheets_service()
+        result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+        values = result.get('values', [])
+        user_history = [{'date': r[2], 'period': r[3], 'status': r[4]} for r in values[1:] if r[0] == session['user_id']]
+        return jsonify(user_history[::-1]) # 最新的在前
+    except: return jsonify([])
+
 @app.route('/submit', methods=['POST'])
 def submit():
     if 'user_id' not in session: return jsonify({'status': 'error'})
     now = datetime.now()
-    if now.hour >= 17: return jsonify({'status': 'error', 'message': '已過簽到時間'})
+    if now.hour >= 17: return jsonify({'status': 'error', 'message': '今日簽到已截止'})
     
     data = request.get_json()
     gps = data.get('gps')
@@ -104,7 +118,7 @@ def submit():
             return jsonify({'status': 'error', 'message': '距離學校太遠囉！'})
 
     curr_t, curr_d = now.time(), now.strftime("%Y-%m-%d")
-    this_p, status, score = "非課堂", "缺席", 0
+    this_p, status, score = "非課堂時間", "缺席", 0
     for p in PERIODS:
         if p["start"] <= curr_t <= p["end"]:
             this_p = p["name"]
@@ -115,12 +129,9 @@ def submit():
     service = get_sheets_service()
     service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
         valueInputOption='USER_ENTERED', body={'values': [[session['user_id'], session['user_name'], curr_d, this_p, status, score]]}).execute()
-    return jsonify({'status': 'success', 'message': f'簽到成功！({status})'})
+    return jsonify({'status': 'success', 'message': f'簽到成功 ({status})'})
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
