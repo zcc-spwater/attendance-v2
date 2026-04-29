@@ -24,7 +24,7 @@ PERIODS = [
     {"name": "第5節", "start": time(13, 15), "end": time(14, 5)},
     {"name": "第6節", "start": time(14, 10), "end": time(15, 0)},
     {"name": "第7節", "start": time(15, 10), "end": time(16, 0)},
-    {"name": "第8節", "start": time(16, 5), "end": time(20, 55)},
+    {"name": "第8節", "start": time(19, 55), "end": time(20, 55)},
 ]
 
 def get_sheets_service():
