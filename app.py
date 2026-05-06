@@ -13,9 +13,10 @@ app.secret_key = 'zcc_secret_key_12345'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = '1Xb_tjeB3KbuXSxlwCwVsthRhAPIMKU8SYeiMMkyuEhw' 
 RANGE_NAME = '工作表1!A:F' 
-SCHOOL_LOCATION = (22.9846, 120.2031)
+SCHOOL_LOCATION = (22.9846, 120.2031) # 學校座標
 ALLOWED_DISTANCE_KM = 0.5 
 
+# 課堂時間定義
 PERIODS = [
     {"name": "第1節", "start": time(8, 0), "end": time(8, 50)},
     {"name": "第2節", "start": time(9, 0), "end": time(9, 50)},
@@ -101,14 +102,17 @@ def my_records():
         result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
         values = result.get('values', [])
         user_history = [{'date': r[2], 'period': r[3], 'status': r[4]} for r in values[1:] if r[0] == session['user_id']]
-        return jsonify(user_history[::-1]) # 最新的在前
+        return jsonify(user_history[::-1])
     except: return jsonify([])
 
 @app.route('/submit', methods=['POST'])
 def submit():
     if 'user_id' not in session: return jsonify({'status': 'error'})
     now = datetime.now()
-    if now.hour >= 17: return jsonify({'status': 'error', 'message': '今日簽到已截止'})
+    
+    # --- 🕒 恢復 17:00 截止限制 ---
+    if now.hour >= 17: 
+        return jsonify({'status': 'error', 'message': '今日簽到已截止'})
     
     data = request.get_json()
     gps = data.get('gps')
@@ -127,11 +131,25 @@ def submit():
             break
 
     service = get_sheets_service()
+    
+    # 🛡️ 防止重複簽到檢查
+    check_result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+    existing_rows = check_result.get('values', [])
+    for row in existing_rows:
+        if len(row) >= 4:
+            if row[0] == session['user_id'] and row[2] == curr_d and row[3] == this_p:
+                return jsonify({'status': 'error', 'message': f'你這節 ({this_p}) 已經簽到過囉！'})
+
+    # 執行寫入
     service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
         valueInputOption='USER_ENTERED', body={'values': [[session['user_id'], session['user_name'], curr_d, this_p, status, score]]}).execute()
+    
     return jsonify({'status': 'success', 'message': f'簽到成功 ({status})'})
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
