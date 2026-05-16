@@ -1,10 +1,10 @@
 import os
 import json
+import math
 from datetime import datetime, time
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from geopy.distance import geodesic
 
 app = Flask(__name__)
 app.secret_key = 'zcc_secret_key_12345'
@@ -28,6 +28,17 @@ PERIODS = [
     {"name": "第8節", "start": time(16, 5), "end": time(16, 55)},
 ]
 
+# 三角函數算兩點 GPS 距離 (免安裝額外套件)
+def calc_distance(loc1, loc2):
+    lat1, lon1 = math.radians(loc1[0]), math.radians(loc1[1])
+    lat2, lon2 = math.radians(loc2[0]), math.radians(loc2[1])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    r = 6371 
+    return c * r
+
 def get_sheets_service():
     json_info = os.environ.get('GOOGLE_SHEETS_JSON')
     if not json_info:
@@ -47,11 +58,13 @@ def index():
         service = get_sheets_service()
         result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
         values = result.get('values', [])[1:]
-    except: values = []
+    except: 
+        values = []
     
     summary = {}
     for r in values:
-        if len(r) >= 6: summary[r[1]] = summary.get(r[1], 0) + int(r[5])
+        if len(r) >= 6: 
+            summary[r[1]] = summary.get(r[1], 0) + int(r[5])
     leaderboard = sorted([{'name': k, 'score': v} for k, v in summary.items()], key=lambda x: x['score'], reverse=True)
     return render_template('index.html', user_name=session['user_name'], leaderboard=leaderboard)
 
@@ -77,7 +90,8 @@ def register():
             service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range='users!A:C', 
                 valueInputOption='USER_ENTERED', body={'values': [[uid, pwd, name]]}).execute()
             return jsonify({'status': 'success', 'message': '註冊成功！'})
-        except Exception as e: return jsonify({'status': 'error', 'message': str(e)})
+        except Exception as e: 
+            return jsonify({'status': 'error', 'message': str(e)})
     return render_template('register.html')
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
@@ -103,14 +117,15 @@ def my_records():
         values = result.get('values', [])
         user_history = [{'date': r[2], 'period': r[3], 'status': r[4]} for r in values[1:] if r[0] == session['user_id']]
         return jsonify(user_history[::-1])
-    except: return jsonify([])
+    except: 
+        return jsonify([])
 
 @app.route('/submit', methods=['POST'])
 def submit():
     if 'user_id' not in session: return jsonify({'status': 'error'})
     now = datetime.now()
     
-    # 🕒 留著！下午 5 點截止簽到機制
+    # 下午 5 點截止簽到機制
     if now.hour >= 17: 
         return jsonify({'status': 'error', 'message': '今日簽到已截止'})
     
@@ -118,7 +133,7 @@ def submit():
     gps = data.get('gps')
     if gps:
         user_loc = tuple(map(float, gps.split(',')))
-        if geodesic(user_loc, SCHOOL_LOCATION).km > ALLOWED_DISTANCE_KM:
+        if calc_distance(user_loc, SCHOOL_LOCATION) > ALLOWED_DISTANCE_KM:
             return jsonify({'status': 'error', 'message': '距離學校太遠囉！'})
 
     curr_t, curr_d = now.time(), now.strftime("%Y-%m-%d")
@@ -132,20 +147,21 @@ def submit():
 
     service = get_sheets_service()
     
-    # 🛡️ 防止重複簽到檢查 (同一天、同一節次、同一個人)
+    # 防止重複簽到檢查
     check_result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
     existing_rows = check_result.get('values', [])
     for row in existing_rows:
         if len(row) >= 4:
             if row[0] == session['user_id'] and row[2] == curr_d and row[3] == this_p:
-                return jsonify({'status': 'error', 'message': f'你這節 ({this_p}) 已經簽到過囉！'})
+                return jsonify({'status': 'error', 'message': '你這節 (' + this_p + ') 已經簽到過囉！'})
 
-    # 執行寫入試算表
+    # 執行寫入
     service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
         valueInputOption='USER_ENTERED', body={'values': [[session['user_id'], session['user_name'], curr_d, this_p, status, score]]}).execute()
-    return jsonify({'status': 'success', 'message': f'簽到成功 ({status})'})
+    
+    return jsonify({'status': 'success', 'message': '簽到成功 (' + status + ')'})
 
-# --- 👑 第三方後台：查詢所有同學紀錄 ---
+# --- 👑 第三方管理後台頁面 ---
 @app.route('/admin')
 def admin_page():
     return render_template('admin.html')
@@ -155,4 +171,24 @@ def all_records_api():
     try:
         service = get_sheets_service()
         result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
-        values = result
+        values = result.get('values', [])
+        if not values or len(values) <= 1: 
+            return jsonify([])
+        
+        all_history = []
+        for r in values[1:]:
+            if len(r) >= 5:
+                all_history.append({
+                    'student_id': r[0], 'name': r[1], 'date': r[2], 'period': r[3], 'status': r[4]
+                })
+        return jsonify(all_history[::-1])
+    except: 
+        return jsonify([]) # 補上確切的 except 區塊，徹底根治 SyntaxError
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
