@@ -21,22 +21,61 @@
 <script>
 async function doSign() {
     const btn = document.getElementById('lBtn');
-    btn.disabled = true; btn.innerText = "定位中...";
+    btn.disabled = true; 
+    btn.innerText = "定位中...";
+    
     navigator.geolocation.getCurrentPosition(async (p) => {
-        const res = await fetch('/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gps: `${p.coords.latitude},${p.coords.longitude}`}) });
+        // 徹底捨棄模板字串，改用傳統字串相加，防範 Jinja2 崩潰
+        const gpsString = p.coords.latitude + ',' + p.coords.longitude;
+        
+        const res = await fetch('/submit', { 
+            method: 'POST', 
+            headers: {'Content-Type':'application/json'}, 
+            body: JSON.stringify({ gps: gpsString }) 
+        });
         const data = await res.json();
-        if(data.status==='success') Swal.fire('簽到成功', data.message, 'success').then(()=>location.reload());
-        else { Swal.fire('錯誤', data.message, 'error'); btn.disabled = false; btn.innerText = "立即簽到"; }
-    }, () => { Swal.fire('失敗', '請開啟 GPS 定位', 'error'); btn.disabled = false; }, {enableHighAccuracy:true});
+        
+        if (data.status === 'success') {
+            Swal.fire('簽到成功', data.message, 'success').then(function() {
+                location.reload();
+            });
+        } else {
+            Swal.fire('錯誤', data.message, 'error');
+            btn.disabled = false;
+            btn.innerText = "立即簽到";
+        }
+    }, () => { 
+        Swal.fire('失敗', '請開啟 GPS 定位', 'error'); 
+        btn.disabled = false; 
+        btn.innerText = "立即簽到";
+    }, {enableHighAccuracy:true});
 }
 
 async function showRecords() {
     const res = await fetch('/my_records');
     const data = await res.json();
-    let html = data.length ? `<table class="record-table"><tr><th>日期</th><th>節次</th><th>狀態</th></tr>` + 
-        data.map(r => `<tr><td>${r.date}</td><td>${r.period}</td><td style="color:${r.status==='出席'?'#10b981':'#f59e0b'}">${r.status}</td></tr>`).join('') + `</table>` 
-        : "尚無簽到紀錄";
-    Swal.fire({ title: '我的紀錄', html: html, background: '#1e293b', color: '#fff', confirmButtonColor: '#3b82f6' });
+    
+    // 將所有可能與 Jinja2 衝突的反引號與 ${} 結構全數拔除
+    let html = "";
+    if (data.length > 0) {
+        html = '<table class="record-table"><tr><th>日期</th><th>節次</th><th>狀態</th></tr>';
+        for (let i = 0; i < data.length; i++) {
+            const r = data[i];
+            const color = (r.status === '出席') ? '#10b981' : '#f59e0b';
+            html += '<tr><td>' + r.date + '</td><td>' + r.period + '</td><td style="color:' + color + '">' + r.status + '</td></tr>';
+        }
+        html += '</table>';
+    } else {
+        html = "尚無簽到紀錄";
+    }
+    
+    Swal.fire({ 
+        title: '我的紀錄', 
+        html: html, 
+        background: '#1e293b', 
+        color: '#fff', 
+        confirmButtonColor: '#3b82f6' 
+    });
 }
 </script>
 {% endblock %}
