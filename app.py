@@ -38,7 +38,7 @@ def get_sheets_service():
     creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     return build('sheets', 'v4', credentials=creds)
 
-# --- 路由 ---
+# --- 路由與功能 ---
 
 @app.route('/')
 def index():
@@ -110,7 +110,7 @@ def submit():
     if 'user_id' not in session: return jsonify({'status': 'error'})
     now = datetime.now()
     
-    # --- 🕒 恢復 17:00 截止限制 ---
+    # 🕒 留著！下午 5 點截止簽到機制
     if now.hour >= 17: 
         return jsonify({'status': 'error', 'message': '今日簽到已截止'})
     
@@ -132,7 +132,7 @@ def submit():
 
     service = get_sheets_service()
     
-    # 🛡️ 防止重複簽到檢查
+    # 🛡️ 防止重複簽到檢查 (同一天、同一節次、同一個人)
     check_result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
     existing_rows = check_result.get('values', [])
     for row in existing_rows:
@@ -140,16 +140,19 @@ def submit():
             if row[0] == session['user_id'] and row[2] == curr_d and row[3] == this_p:
                 return jsonify({'status': 'error', 'message': f'你這節 ({this_p}) 已經簽到過囉！'})
 
-    # 執行寫入
+    # 執行寫入試算表
     service.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
         valueInputOption='USER_ENTERED', body={'values': [[session['user_id'], session['user_name'], curr_d, this_p, status, score]]}).execute()
-    
     return jsonify({'status': 'success', 'message': f'簽到成功 ({status})'})
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
+# --- 👑 第三方後台：查詢所有同學紀錄 ---
+@app.route('/admin')
+def admin_page():
+    return render_template('admin.html')
 
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.route('/api/all_records')
+def all_records_api():
+    try:
+        service = get_sheets_service()
+        result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+        values = result

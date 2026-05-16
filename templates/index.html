@@ -3,16 +3,19 @@
 <div class="glass-card">
     <div style="font-size: 40px;">📍</div>
     <h2 style="margin: 10px 0;">{{ user_name }}</h2>
-    <p style="color: #94a3b8; font-size: 14px;">點擊按鈕完成簽到</p>
+    <p style="color: #94a3b8; font-size: 14px;">資二甲簽到管理系統</p>
     
     <button class="btn" id="lBtn" onclick="doSign()">立即簽到</button>
-    <button class="btn" style="background: rgba(255,255,255,0.1); margin-top: 10px;" onclick="showRecords()">歷史紀錄</button>
+    
+    <button class="btn" style="background: rgba(255,255,255,0.1); margin-top: 10px;" onclick="showRecords()">歷史紀錄查詢</button>
+    
+    <button class="btn" style="background: transparent; border: 1px solid #3b82f6; color: #3b82f6; margin-top: 10px;" onclick="location.href='/admin'">👑 管理員後台</button>
 
     <div style="text-align:left; margin-top:20px; background:rgba(15, 23, 42, 0.5); padding:15px; border-radius:15px;">
         <p style="color:#3b82f6; font-weight:bold; margin:0 0 10px 0; display:flex; align-items:center;">
-            <span style="margin-right:5px;">🏆</span> 積分榜
+            <span style="margin-right:5px;">🏆</span> 積分排行榜
         </p>
-        {% for i in leaderboard[:3] %}
+        {% for i in leaderboard[:5] %}
         <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px;">
             <span>{{ loop.index }}. {{ i.name }}</span><span style="color:#94a3b8;">{{ i.score }} pts</span>
         </div>
@@ -29,18 +32,25 @@ async function doSign() {
     navigator.geolocation.getCurrentPosition(async (p) => {
         const res = await fetch('/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gps: `${p.coords.latitude},${p.coords.longitude}`}) });
         const data = await res.json();
-        if(data.status==='success') Swal.fire('簽到成功', data.message, 'success').then(()=>location.reload());
-        else { Swal.fire('錯誤', data.message, 'error'); btn.disabled = false; btn.innerText = "立即簽到"; }
-    }, () => { Swal.fire('失敗', '請開啟 GPS 定位', 'error'); btn.disabled = false; }, {enableHighAccuracy:true});
+        if(data.status==='success') {
+            Swal.fire('簽到成功', data.message, 'success').then(()=>location.reload());
+        } else {
+            Swal.fire('失敗', data.message, 'error');
+            btn.disabled = false; btn.innerText = "立即簽到";
+        }
+    }, () => {
+        Swal.fire('錯誤', '請開啟手機 GPS 定位權限', 'error');
+        btn.disabled = false; btn.innerText = "立即簽到";
+    }, {enableHighAccuracy:true, timeout:10000});
 }
 
 async function showRecords() {
     const res = await fetch('/my_records');
     const data = await res.json();
-    let html = data.length ? `<table class="record-table"><tr><th>日期</th><th>節次</th><th>狀態</th></tr>` + 
-        data.map(r => `<tr><td>${r.date}</td><td>${r.period}</td><td style="color:${r.status==='出席'?'#10b981':'#f59e0b'}">${r.status}</td></tr>`).join('') + `</table>` 
+    let html = data.length ? `<div style="max-height:250px; overflow-y:auto;"><table class="record-table"><tr><th>日期</th><th>節次</th><th>狀態</th></tr>` + 
+        data.map(r => `<tr><td>${r.date}</td><td>${r.period}</td><td style="color:${r.status==='出席'?'#10b981':'#f59e0b'}">${r.status}</td></tr>`).join('') + `</table></div>` 
         : "尚無簽到紀錄";
-    Swal.fire({ title: '我的紀錄', html: html, background: '#1e293b', color: '#fff', confirmButtonColor: '#3b82f6' });
+    Swal.fire({ title: '我的歷史紀錄', html: html, background: '#1e293b', color: '#fff', confirmButtonColor: '#3b82f6' });
 }
 </script>
 {% endblock %}
